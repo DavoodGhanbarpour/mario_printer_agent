@@ -1,7 +1,7 @@
 ## Welcome to Mario Printer Agent.
 ------------
 
-#### What is it?
+### What is it?
 Well, the problem with web applications is that, they exists just in browsers and This means they don't have direct access to the clients resources. So imagine we have a Restaurant application that prints a preparation receipt after each order .As i mentioned applications don't have direct access to printer. Every printer request will executed by broweser itself and a printer dialog will shown which is not what clients wants! 
 So we can solve this problem with many solutions. One of them is using a third-party application which is installed on clients machine and do this for us.
 
@@ -33,7 +33,7 @@ For now, printer agnet supports only 80 mm size for POS printers.
 - [ ] A single installable file
 - [ ] Startup option
 - [ ] Support more printer size (A4, A5)
-- 
+
 ### Contribute
 Any help would be apperciated.
 

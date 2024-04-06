@@ -2,38 +2,35 @@
 ------------
 
 ### What is it?
-Well, the problem with web applications is that, they exists just in browsers and This means they don't have direct access to the clients resources. So imagine we have a Restaurant application that prints a preparation receipt after each order .As i mentioned applications don't have direct access to printer. Every printer request will executed by broweser itself and a printer dialog will shown which is not what clients wants! 
-So we can solve this problem with many solutions. One of them is using a third-party application which is installed on clients machine and do this for us.
+The issue with web applications is that they exist solely within browsers. This means they lack direct access to client resources. Consider a restaurant application that prints a preparation receipt after each order. As mentioned, applications lack direct printer access. Every printer request is executed by the browser itself, prompting a printer dialog, which may not align with the client's preferences. 
+To solve this, we can employ various solutions, one of which involves utilizing a third-party application installed on the client's machine.
 
 ### How it works?
-The general idea is that, The agent will try to call a webservice every 10 seconds. That will provide the address of a web page which we want to print. If there was any address provieded, so agent will catch that and shows it in a preview frame provided on itself, indicating that address is reachable and everything works fine. Then, provieded address will be printed by the printer which was provided in agent configurations. 
+The general idea is that the agent attempts to call a web service every 10 seconds. This service provides the address of a webpage to print. If an address is provided, the agent captures it and displays it in a preview frame within itself, indicating that the address is reachable and everything is functioning correctly. Subsequently, the provided address is printed by the printer configured within the agent. 
 
-This was the general idea, but i encountered other challenges in the production. The problem was that restaurants can have many printers, And each printer may have its own unique print job. Imagine a restaurant have 2 section, one is the coffeeshop, the other is main section. When user submits an order including Mohito and Pizza, it should print Mohito at coffeshop's printer, and Pizza at restaurant's printer. Solution was easy, I changed the agent the way that user can selected mutli printer, and it will loop through all of them, calling the webservice with the name of printer device being sent to it.
+While this was the initial concept, I encountered other challenges in production. Restaurants may have multiple printers, each designated for specific print jobs. For instance, imagine a restaurant with two sections: a coffee shop and the main dining area. When a user submits an order containing a Mojito and a Pizza, the Mojito should print at the coffee shop's printer, and the Pizza at the main section's printer. The solution was straightforward: I modified the agent to allow users to select multiple printers, and it iterates through each one, calling the web service with the respective printer device name.
 
 #### Notice
-For now, printer agnet supports only 80 mm size for POS printers.
+Currently, the printer agent supports only 80 mm paper size for POS printers.
 
 #### Platform
-- ElectornJS V?
-- NodeJS V?
-- Bootstrap V?
-
-
+- ElectronJS: [Version]
+- NodeJS: [Version]
+- Bootstrap: [Version]
 
 #### Installation
-1. Just download it and run it. That's easy.
+1. Simply download and run it. It's that easy.
 
 ### ToDo
 
-- [ ] Improvments in UI
-    - [ ] Section for configurations
+- [ ] UI Improvements
+    - [ ] Configuration section
     - [ ] New title and icon
     - [ ] Selectable printer names
     - [ ] Tutorials
-- [ ] A single installable file
-- [ ] Startup option
-- [ ] Support more printer size (A4, A5)
+- [ ] Create a single installable file
+- [ ] Implement startup option
+- [ ] Support for additional printer sizes (A4, A5)
 
 ### Contribute
-Any help would be apperciated.
-
+Any help would be appreciated.

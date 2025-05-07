@@ -1,162 +1,161 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
-const path        = require('path')
-const Store       = require('electron-store');
-const AutoLaunch  = require('auto-launch');
-const axios       = require('axios');
-const store       = new Store();
-var win, configs;        
+const path = require('path');
+const Store = require('electron-store');
+const AutoLaunch = require('auto-launch');
+const axios = require('axios');
+
+const store = new Store();
+let mainWindow;
 
 app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
-  createAgentWindow();
-  configs = getConfig();
-  ipcMain.on('setConfig', saveConfigs);
-  ipcMain.on('getConfig',()=>{
-    win.webContents.send('replyGetConfig', getConfig());
-  });
-  
+  const configs = loadConfig();
 
-  setInterval(() => {
-    getNextPrintJob();
-  },8000);
+  mainWindow = createMainWindow();
+  setupIpcHandlers(configs);
+  setupAutoLaunch(configs);
+  startPolling(configs);
 
-  
-  app.on('activate', function () { 
-    if (BrowserWindow.getAllWindows().length === 0) 
-      createAgentWindow();
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createMainWindow();
+    }
   });
 
-  win.on('minimize',function(event){
+  mainWindow.on('minimize', (event) => {
     event.preventDefault();
-    win.minimize();
+    mainWindow.minimize();
   });
 
-  win.on('close', function () {
+  mainWindow.on('close', () => {
     app.quit();
   });
-
-
-  setStartup();
-  
 });
 
-
-app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') app.quit()
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
 });
 
+// ---------- Window Setup ----------
 
+function createMainWindow() {
+  const { bounds } = screen.getPrimaryDisplay();
 
-const createAgentWindow = () => {
-  buildAgentMainWindow();
-  loadAgentHTML();
-};
-
-function buildAgentMainWindow(){
-  let display = screen.getPrimaryDisplay();
-    win = new BrowserWindow({
-    autoHideMenuBar: true,
+  const win = new BrowserWindow({
     width: 350,
     height: 600,
-    x: display.bounds.width - 350,
-    y: display.bounds.height - 650,
+    x: bounds.width - 350,
+    y: bounds.height - 650,
+    autoHideMenuBar: true,
     maximizable: false,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     },
   });
-  win.setResizable(false);
-  // win.webContents.openDevTools();
+
+  win.loadFile('./src/index.html');
+  return win;
 }
 
-function setStartup() {
+// ---------- IPC and Config ----------
 
-  
-  if( configs.startup == 'on' )
-  {
-    let autoLaunch = new AutoLaunch({
+function setupIpcHandlers(configs) {
+  ipcMain.on('setConfig', (_, input) => {
+    saveConfig(input);
+    Object.assign(configs, loadConfig());
+  });
+
+  ipcMain.on('getConfig', () => {
+    mainWindow.webContents.send('replyGetConfig', loadConfig());
+  });
+}
+
+function saveConfig(data) {
+  store.set('config', JSON.stringify(data ?? ""));
+}
+
+function loadConfig() {
+  if (store.has('config')) {
+    try {
+      return JSON.parse(store.get('config')) || {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+// ---------- Auto Launch ----------
+
+function setupAutoLaunch(configs) {
+  if (configs.startup === 'on') {
+    const autoLauncher = new AutoLaunch({
       name: 'Printer Agent',
       path: app.getPath('exe'),
     });
-    autoLaunch.isEnabled().then((isEnabled) => {
-      if (!isEnabled) autoLaunch.enable();
+
+    autoLauncher.isEnabled().then((isEnabled) => {
+      if (!isEnabled) autoLauncher.enable();
     });
   }
 }
 
-function loadAgentHTML(){
-  win.loadFile('./src/index.html');
+// ---------- Polling ----------
+
+function startPolling(configs) {
+  setInterval(() => {
+    fetchNextPrintJobs(configs);
+  }, 8000);
 }
 
-function saveConfigs(event,input){
-  store.set( 'config', JSON.stringify(input) ?? "")
-  configs = getConfig();
-}
-
-function getConfig(){
-  if( store.has('config')  )
-  {
-    let configData = JSON.parse(  store.get( 'config' ) );
-    if( configData )
-      return configData;
-  }
-  return "";
-}
-
-
-function getNextPrintJob(){
-  let url     = `${configs.ip}:${configs.port}`;
-  if( configs.ip && configs.port && configs.printerName && configs.start == 'on' )
-  {
-    configs.printerName.split(',').forEach(eachPrinterName => {
-      setTimeout(() => {
-        getAndPrintNextJob( url, eachPrinterName.toString().trim());
-      }, 8000);
+function fetchNextPrintJobs(configs) {
+  const { ip, port, printerName, start } = configs;
+  if (ip && port && printerName && start === 'on') {
+    const baseUrl = `${ip}:${port}`;
+    printerName.split(',').forEach((name) => {
+      const trimmedName = name.trim();
+      if (trimmedName) {
+        fetchAndPrintJob(baseUrl, trimmedName, configs);
+      }
     });
-   
   }
 }
 
-
-function getAndPrintNextJob( url, printerName )
-{
-  if( printerName == undefined || printerName.length == 0 ) return;
-  if( url == undefined || url.length == 0 ) return;
-
+function fetchAndPrintJob(url, printerName, configs) {
   axios.get(`${url}/system/prints/${printerName}`)
-  .then(function (response) {
-    if( response.data != '-' )
-      print(response.data+'&hide=true', printerName)
-  })
-  .catch(function (error) {
+    .then(({ data }) => {
+      if (data !== '-') {
+        printURL(`${data}&hide=true`, printerName, configs);
+      }
+    })
+    .catch((err) => {
+      console.error(`Failed to fetch print job for ${printerName}:`, err.message);
+    });
+}
+
+// ---------- Printing ----------
+
+function printURL(url, printerName, configs) {
+  const hiddenWin = new BrowserWindow({ show: false });
+
+  hiddenWin.loadURL(url);
+
+  hiddenWin.webContents.on('did-finish-load', () => {
+    hiddenWin.webContents.print({
+      silent: true,
+      deviceName: printerName,
+      printBackground: configs.printBackground === 'on',
+    }, () => {
+      hiddenWin.destroy();
+      sendPreviewUpdate(`${url}&hide=true`);
+    });
   });
 }
 
-function preview(url){
-  win.webContents.send('updatePreviewFrame', url)
+function sendPreviewUpdate(url) {
+  mainWindow.webContents.send('updatePreviewFrame', url);
 }
-
-function print(url, printerName){
-  if( printerName )
-  {
-    
-    let hiddenWin = new BrowserWindow({ show: false });
-    hiddenWin.loadURL(url);
-    if (hiddenWin) 
-    {
-      hiddenWin.webContents.on('did-finish-load', function() {
-      hiddenWin.webContents.print({
-          silent: true,
-          deviceName: printerName,
-          printBackground: configs.printBackground == 'on' ? true : false,
-        },() => {
-          hiddenWin.destroy();
-          preview(url+'&hide=true')
-        });
-      });
-    }
-  }
-}
-
-
